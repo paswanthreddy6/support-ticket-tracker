@@ -22,14 +22,24 @@ Employees raise issues; support staff track priority and progress.
 - The existing frontend uses HTML, CSS, and vanilla JavaScript only.
 - The optional API uses Node.js, Express, SQLite, and server-side sessions.
 - Do not add paid APIs or frameworks to the frontend.
-- The browser/localStorage frontend remains available for local standalone use.
-- The API stores authenticated users and their tickets in SQLite.
+- The frontend loads and mutates the shared ticket queue through the API.
+- The API stores tickets in SQLite so every frontend visitor sees the same queue.
 
 ## API setup
 1. Install Node.js 18 or newer.
 2. Run `npm install`.
 3. Copy `.env.example` to `.env` and set a long random `SESSION_SECRET`.
 4. Run `npm start`.
+
+For Render, set `NODE_ENV=production`, `SESSION_SECRET` to a random value of at
+least 32 characters, `CLIENT_ORIGIN` to
+`https://support-ticket-tracker-rose.vercel.app`, and `DATABASE_FILE` to a path
+on a mounted persistent disk (for example `./data/support-desk.db`). The
+frontend uses the deployed Render API URL by default; set
+`window.SUPPORT_DESK_API_URL` before `app.js` only if the API URL changes.
+
+For Vercel, deploy the repository as a static site with the project root as
+the output directory. No frontend secret or `SESSION_SECRET` is required.
 
 The API provides:
 - `POST /api/auth/register`
@@ -41,7 +51,12 @@ The API provides:
 - `PATCH /api/tickets/:id/status`
 - `DELETE /api/tickets/:id`
 
-Authentication uses HTTP-only, same-site session cookies. Passwords are hashed with bcrypt. Input validation, CORS, authentication rate limiting, ownership checks, and centralized error responses are enabled.
+Authentication uses HTTP-only, same-site session cookies. Passwords are hashed with bcrypt. Input validation, CORS, authentication rate limiting, and centralized error responses are enabled.
+
+The ticket board is intentionally shared and its ticket CRUD endpoints do not
+require a session, so visitors using the Vercel frontend see the same SQLite
+queue. The authentication endpoints remain available for future protected
+features.
  
 ## User Experience
 Keep the UI simple, responsive, accessible, and easy for a first-time user.

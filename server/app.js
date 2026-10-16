@@ -11,7 +11,10 @@ const database = require("./db");
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
-const clientOrigin = process.env.CLIENT_ORIGIN || `http://localhost:${port}`;
+const clientOrigins = (process.env.CLIENT_ORIGIN || `http://localhost:${port}`)
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 const isProduction = process.env.NODE_ENV === "production";
 
 if (isProduction && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32)) {
@@ -19,7 +22,10 @@ if (isProduction && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.l
 }
 
 app.disable("x-powered-by");
-app.use(cors({ origin: clientOrigin, credentials: true }));
+app.use(cors({
+  origin: clientOrigins,
+  credentials: true
+}));
 app.use(express.json({ limit: "16kb" }));
 app.use(express.urlencoded({ extended: false, limit: "16kb" }));
 app.use(session({
@@ -139,41 +145,41 @@ app.get("/api/auth/me", requireUser, (request, response) => {
   response.json({ user });
 });
 
-app.get("/api/tickets", requireUser, (request, response) => {
-  const rows = database.prepare("SELECT * FROM tickets WHERE user_id = ? ORDER BY created_at DESC, id DESC").all(request.session.userId);
+app.get("/api/tickets", (request, response) => {
+  const rows = database.prepare("SELECT * FROM tickets ORDER BY created_at DESC, id DESC").all();
   response.json({ tickets: rows.map(mapTicket) });
 });
 
-app.post("/api/tickets", requireUser, (request, response, next) => {
+app.post("/api/tickets", (request, response, next) => {
   try {
     const ticket = validateTicket(request.body);
     const result = database.prepare(`
-      INSERT INTO tickets (user_id, title, requester, category, priority, description)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(request.session.userId, ticket.title, ticket.requester, ticket.category, ticket.priority, ticket.description);
-    const created = database.prepare("SELECT * FROM tickets WHERE id = ? AND user_id = ?").get(result.lastInsertRowid, request.session.userId);
+      INSERT INTO tickets (title, requester, category, priority, description)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(ticket.title, ticket.requester, ticket.category, ticket.priority, ticket.description);
+    const created = database.prepare("SELECT * FROM tickets WHERE id = ?").get(result.lastInsertRowid);
     response.status(201).json({ ticket: mapTicket(created) });
   } catch (error) {
     next(error);
   }
 });
 
-app.patch("/api/tickets/:id/status", requireUser, (request, response, next) => {
+app.patch("/api/tickets/:id/status", (request, response, next) => {
   try {
     const status = typeof request.body.status === "string" ? request.body.status : "";
     if (!["Open", "In Progress", "Resolved"].includes(status)) throw httpError(400, "Invalid status.");
-    const result = database.prepare("UPDATE tickets SET status = ? WHERE id = ? AND user_id = ?").run(status, request.params.id, request.session.userId);
+    const result = database.prepare("UPDATE tickets SET status = ? WHERE id = ?").run(status, request.params.id);
     if (!result.changes) throw httpError(404, "Ticket not found.");
-    const ticket = database.prepare("SELECT * FROM tickets WHERE id = ? AND user_id = ?").get(request.params.id, request.session.userId);
+    const ticket = database.prepare("SELECT * FROM tickets WHERE id = ?").get(request.params.id);
     response.json({ ticket: mapTicket(ticket) });
   } catch (error) {
     next(error);
   }
 });
 
-app.delete("/api/tickets/:id", requireUser, (request, response, next) => {
+app.delete("/api/tickets/:id", (request, response, next) => {
   try {
-    const result = database.prepare("DELETE FROM tickets WHERE id = ? AND user_id = ?").run(request.params.id, request.session.userId);
+    const result = database.prepare("DELETE FROM tickets WHERE id = ?").run(request.params.id);
     if (!result.changes) throw httpError(404, "Ticket not found.");
     response.status(204).end();
   } catch (error) {

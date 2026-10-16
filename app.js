@@ -1,50 +1,44 @@
 (() => {
   "use strict";
 
-  const STORAGE_KEY = "support-desk-tickets";
+  const API_BASE_URL = window.SUPPORT_DESK_API_URL || "https://support-ticket-tracker-veq1.onrender.com";
   const STATUSES = ["Open", "In Progress", "Resolved"];
   const form = document.querySelector("#ticket-form");
+  const submitButton = form.querySelector("button[type='submit']");
   const searchInput = document.querySelector("#search-input");
   const statusFilter = document.querySelector("#status-filter");
   const sortSelect = document.querySelector("#sort-select");
   const ticketList = document.querySelector("#ticket-list");
+  const loadingState = document.querySelector("#loading-state");
   const emptyState = document.querySelector("#empty-state");
   const noResults = document.querySelector("#no-results");
   const totalElement = document.querySelector("#ticket-total");
   const formMessage = document.querySelector("#form-message");
-  let tickets = loadTickets();
+  const apiMessage = document.querySelector("#api-message");
+  let tickets = [];
+  let isMutating = false;
 
-  function loadTickets() {
+  async function request(path, options = {}) {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers: { "Content-Type": "application/json", ...(options.headers || {}) }
+    });
+    let payload = {};
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (!stored) return [];
-      const parsed = JSON.parse(stored);
-      if (!Array.isArray(parsed)) return [];
-      return parsed.filter(isValidTicket);
+      payload = await response.json();
     } catch (error) {
-      console.warn("Saved tickets could not be loaded.", error);
-      return [];
+      if (!response.ok) throw new Error(`Request failed with status ${response.status}.`);
     }
+    if (!response.ok) throw new Error(payload.error || `Request failed with status ${response.status}.`);
+    return payload;
   }
 
-  function isValidTicket(ticket) {
-    return ticket && typeof ticket === "object"
-      && typeof ticket.id === "string"
-      && typeof ticket.title === "string"
-      && typeof ticket.requester === "string"
-      && typeof ticket.category === "string"
-      && typeof ticket.priority === "string"
-      && typeof ticket.description === "string"
-      && Number.isFinite(ticket.createdAt)
-      && STATUSES.includes(ticket.status);
-  }
-
-  function saveTickets() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(tickets));
-    } catch (error) {
-      console.warn("Tickets could not be saved.", error);
-    }
+  function normalizeTicket(ticket) {
+    return {
+      ...ticket,
+      id: String(ticket.id),
+      createdAt: Date.parse(ticket.createdAt)
+    };
   }
 
   function formatDate(timestamp) {
@@ -56,6 +50,18 @@
     if (className) element.className = className;
     if (text !== undefined) element.textContent = text;
     return element;
+  }
+
+  function setApiMessage(message = "", isError = false) {
+    apiMessage.textContent = message;
+    apiMessage.classList.toggle("api-error", isError);
+  }
+
+  function setMutationState(isBusy) {
+    isMutating = isBusy;
+    submitButton.disabled = isBusy;
+    submitButton.textContent = isBusy ? "Saving..." : "Create ticket";
+    ticketList.querySelectorAll("select, button").forEach((control) => { control.disabled = isBusy; });
   }
 
   function render() {
@@ -153,48 +159,92 @@
     return isValid;
   }
 
-  function updateStatus(id, status) {
-    tickets = tickets.map((ticket) => ticket.id === id ? { ...ticket, status } : ticket);
-    saveTickets();
-    render();
+  async function updateStatus(id, status) {
+    if (isMutating) return;
+    setMutationState(true);
+    setApiMessage();
+    try {
+      const result = await request(`/api/tickets/${encodeURIComponent(id)}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status })
+      });
+      tickets = tickets.map((ticket) => ticket.id === id ? normalizeTicket(result.ticket) : ticket);
+      render();
+    } catch (error) {
+      setApiMessage(error.message, true);
+      render();
+    } finally {
+      setMutationState(false);
+    }
   }
 
-  function deleteTicket(id) {
+  async function deleteTicket(id) {
     const ticket = tickets.find((item) => item.id === id);
-    if (!ticket || !window.confirm(`Delete "${ticket.title}"? This cannot be undone.`)) return;
-    tickets = tickets.filter((item) => item.id !== id);
-    saveTickets();
-    render();
+    if (!ticket || isMutating || !window.confirm(`Delete "${ticket.title}"? This cannot be undone.`)) return;
+    setMutationState(true);
+    setApiMessage();
+    try {
+      await request(`/api/tickets/${encodeURIComponent(id)}`, { method: "DELETE" });
+      tickets = tickets.filter((item) => item.id !== id);
+      render();
+    } catch (error) {
+      setApiMessage(error.message, true);
+    } finally {
+      setMutationState(false);
+    }
   }
 
-  form.addEventListener("submit", (event) => {
+  async function loadTickets() {
+    loadingState.classList.remove("hidden");
+    try {
+      const result = await request("/api/tickets");
+      tickets = Array.isArray(result.tickets) ? result.tickets.map(normalizeTicket) : [];
+      render();
+    } catch (error) {
+      setApiMessage(`Could not load tickets: ${error.message}`, true);
+    } finally {
+      loadingState.classList.add("hidden");
+    }
+  }
+
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (isMutating) return;
     const data = Object.fromEntries(new FormData(form).entries());
     if (!validateForm(data)) {
       formMessage.textContent = "Please complete the required fields.";
       return;
     }
-    tickets.unshift({
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      title: data.title.trim(),
-      requester: data.requester.trim(),
-      category: data.category,
-      priority: data.priority,
-      description: data.description.trim(),
-      status: "Open",
-      createdAt: Date.now()
-    });
-    saveTickets();
-    form.reset();
-    form.querySelectorAll(".input-error").forEach((input) => input.classList.remove("input-error"));
-    form.querySelectorAll("[aria-invalid]").forEach((input) => input.removeAttribute("aria-invalid"));
-    form.querySelectorAll(".field-error").forEach((error) => { error.textContent = ""; });
-    formMessage.textContent = "Ticket created successfully.";
-    render();
+    setMutationState(true);
+    formMessage.textContent = "";
+    setApiMessage();
+    try {
+      const result = await request("/api/tickets", {
+        method: "POST",
+        body: JSON.stringify({
+          title: data.title.trim(),
+          requester: data.requester.trim(),
+          category: data.category,
+          priority: data.priority,
+          description: data.description.trim()
+        })
+      });
+      tickets.unshift(normalizeTicket(result.ticket));
+      form.reset();
+      form.querySelectorAll(".input-error").forEach((input) => input.classList.remove("input-error"));
+      form.querySelectorAll("[aria-invalid]").forEach((input) => input.removeAttribute("aria-invalid"));
+      form.querySelectorAll(".field-error").forEach((error) => { error.textContent = ""; });
+      formMessage.textContent = "Ticket created successfully.";
+      render();
+    } catch (error) {
+      formMessage.textContent = `Ticket could not be created: ${error.message}`;
+    } finally {
+      setMutationState(false);
+    }
   });
 
   searchInput.addEventListener("input", render);
   statusFilter.addEventListener("change", render);
   sortSelect.addEventListener("change", render);
-  render();
+  loadTickets();
 })();

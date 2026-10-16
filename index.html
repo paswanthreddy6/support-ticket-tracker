@@ -136,7 +136,13 @@
             </div>
           </div>
         </div>
-        <div id="empty-state" class="empty-state">
+        <p id="api-message" class="api-message" role="status" aria-live="polite"></p>
+        <div id="loading-state" class="empty-state">
+          <div class="loading-spinner" aria-hidden="true"></div>
+          <h3>Loading tickets</h3>
+          <p>Connecting to the shared support queue.</p>
+        </div>
+        <div id="empty-state" class="empty-state hidden">
           <div class="empty-icon" aria-hidden="true">✓</div>
           <h3>No tickets yet</h3>
           <p>New support requests will appear here after you create them.</p>
@@ -152,7 +158,7 @@
   </main>
 
   <footer class="site-footer">
-    <div class="container"><span>Support Desk</span><span>Tickets are saved in this browser.</span></div>
+    <div class="container"><span>Support Desk</span><span>Tickets are shared through the support API.</span></div>
   </footer>
   <script src="app.js"></script>
 </body>

@@ -17,7 +17,7 @@
 - Reject empty or whitespace-only ticket titles.
 - Validate required fields before saving.
 - Update status counts whenever tickets change.
-- Persist ticket changes to localStorage.
+- Persist ticket changes through the backend API.
 - Handle missing or invalid stored data without crashing.
 - Confirm destructive actions such as deleting a ticket when appropriate.
  
