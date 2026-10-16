@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A lightweight internal IT support ticket tracker.">
+  <title>Support Desk | IT Ticket Tracker</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-content">
+      <a class="brand" href="index.html" aria-label="Support Desk home">
+        <span class="brand-mark" aria-hidden="true">+</span>
+        <span>
+          <strong>Support Desk</strong>
+          <small>IT ticket tracker</small>
+        </span>
+      </a>
+      <span class="header-note">Internal support workspace</span>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero" aria-labelledby="page-title">
+      <div>
+        <p class="eyebrow">Operations dashboard</p>
+        <h1 id="page-title">Keep every request moving.</h1>
+        <p class="intro">Capture issues, prioritize the work, and keep your team aligned from open to resolved.</p>
+      </div>
+      <div class="hero-accent" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </div>
+    </section>
+
+    <section class="summary-grid" aria-label="Ticket status summary">
+      <article class="summary-card summary-open">
+        <span class="summary-label">Open</span>
+        <strong id="open-count">0</strong>
+        <span class="summary-detail">Needs triage</span>
+      </article>
+      <article class="summary-card summary-progress">
+        <span class="summary-label">In progress</span>
+        <strong id="in-progress-count">0</strong>
+        <span class="summary-detail">Being worked on</span>
+      </article>
+      <article class="summary-card summary-resolved">
+        <span class="summary-label">Resolved</span>
+        <strong id="resolved-count">0</strong>
+        <span class="summary-detail">Successfully closed</span>
+      </article>
+    </section>
+
+    <div class="workspace">
+      <section class="panel form-panel" aria-labelledby="new-ticket-title">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">New request</p>
+            <h2 id="new-ticket-title">Create a ticket</h2>
+          </div>
+          <span class="required-note">* Required</span>
+        </div>
+        <form id="ticket-form" novalidate>
+          <div class="form-group">
+            <label for="title">Issue title <span aria-hidden="true">*</span></label>
+            <input id="title" name="title" type="text" maxlength="100" autocomplete="off" required>
+            <span class="field-error" id="title-error"></span>
+          </div>
+          <div class="form-group">
+            <label for="requester">Requester <span aria-hidden="true">*</span></label>
+            <input id="requester" name="requester" type="text" maxlength="80" autocomplete="name" required>
+            <span class="field-error" id="requester-error"></span>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="category">Category <span aria-hidden="true">*</span></label>
+              <select id="category" name="category" required>
+                <option value="">Select category</option>
+                <option value="Hardware">Hardware</option>
+                <option value="Software">Software</option>
+                <option value="Access">Access</option>
+                <option value="Network">Network</option>
+                <option value="Other">Other</option>
+              </select>
+              <span class="field-error" id="category-error"></span>
+            </div>
+            <div class="form-group">
+              <label for="priority">Priority <span aria-hidden="true">*</span></label>
+              <select id="priority" name="priority" required>
+                <option value="">Select priority</option>
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+              </select>
+              <span class="field-error" id="priority-error"></span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="description">Description <span aria-hidden="true">*</span></label>
+            <textarea id="description" name="description" rows="5" maxlength="1000" required></textarea>
+            <span class="field-error" id="description-error"></span>
+          </div>
+          <button class="button button-primary button-full" type="submit">Create ticket</button>
+          <p class="form-message" id="form-message" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+
+      <section class="panel tickets-panel" aria-labelledby="tickets-title">
+        <div class="panel-heading tickets-heading">
+          <div>
+            <p class="eyebrow">Ticket queue</p>
+            <h2 id="tickets-title">All tickets <span id="ticket-total" class="heading-count">0</span></h2>
+          </div>
+          <div class="ticket-controls">
+            <div class="search-wrapper">
+              <label class="sr-only" for="search-input">Search by title or requester</label>
+              <span class="search-icon" aria-hidden="true">⌕</span>
+              <input id="search-input" type="search" placeholder="Search tickets..." autocomplete="off">
+            </div>
+            <div class="filter-wrapper">
+              <label class="sr-only" for="status-filter">Filter tickets by status</label>
+              <select id="status-filter">
+                <option value="All">All statuses</option>
+                <option value="Open">Open</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Resolved">Resolved</option>
+              </select>
+            </div>
+            <div class="sort-wrapper">
+              <label class="sr-only" for="sort-select">Sort tickets</label>
+              <select id="sort-select">
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+                <option value="priority">Priority (high to low)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div id="empty-state" class="empty-state">
+          <div class="empty-icon" aria-hidden="true">✓</div>
+          <h3>No tickets yet</h3>
+          <p>New support requests will appear here after you create them.</p>
+        </div>
+        <div id="no-results" class="empty-state hidden">
+          <div class="empty-icon" aria-hidden="true">⌕</div>
+          <h3>No matching tickets</h3>
+          <p>Try a different title or requester name.</p>
+        </div>
+        <div id="ticket-list" class="ticket-list" aria-live="polite"></div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container"><span>Support Desk</span><span>Tickets are saved in this browser.</span></div>
+  </footer>
+  <script src="app.js"></script>
+</body>
+</html>
