@@ -11,10 +11,10 @@ const database = require("./db");
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
-const clientOrigins = (process.env.CLIENT_ORIGIN || `http://localhost:${port}`)
-  .split(",")
-  .map((origin) => origin.trim())
-  .filter(Boolean);
+const clientOrigins = [
+  "https://support-ticket-tracker-rose.vercel.app",
+  "http://localhost:3000"
+];
 const isProduction = process.env.NODE_ENV === "production";
 
 if (isProduction && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32)) {
@@ -24,7 +24,9 @@ if (isProduction && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.l
 app.disable("x-powered-by");
 app.use(cors({
   origin: clientOrigins,
-  credentials: true
+  credentials: true,
+  methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
 app.use(express.json({ limit: "16kb" }));
 app.use(express.urlencoded({ extended: false, limit: "16kb" }));
